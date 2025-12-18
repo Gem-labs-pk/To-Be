@@ -2,16 +2,17 @@
   "name": "To Be.",
   "short_name": "ToBe",
   "description": "Premium Productivity App by Gem Labs",
-  "start_url": "/index.html",
+  "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#4f46e5",
   "theme_color": "#4f46e5",
   "orientation": "portrait",
+  "scope": "./",
   "icons": [
     {
-      "src": "https://cdn-icons-png.flaticon.com/512/3241/3241473.png",
+      "src": "./logo.svg",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/svg+xml"
     }
   ]
 }
