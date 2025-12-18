@@ -1,383 +1,322 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  Book, 
-  Plus, 
-  Calendar, 
-  Bell, 
-  Trash2, 
-  Save, 
-  CheckCircle, 
-  Clock, 
-  ChevronRight,
-  User,
-  Settings,
-  Moon,
-  Sun,
-  Search,
-  BookOpen
-} from 'lucide-react';
-
-// --- UI Components ---
-
-const Button = ({ children, onClick, variant = 'primary', className = '', icon: Icon }) => {
-  const variants = {
-    primary: 'bg-indigo-600 hover:bg-indigo-700 text-white',
-    secondary: 'bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-slate-800 dark:text-slate-200',
-    danger: 'bg-rose-500 hover:bg-rose-600 text-white',
-    outline: 'border border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
-  };
-
-  return (
-    <button 
-      onClick={onClick}
-      className={`flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-medium transition-all active:scale-95 disabled:opacity-50 ${variants[variant]} ${className}`}
-    >
-      {Icon && <Icon size={18} />}
-      {children}
-    </button>
-  );
-};
-
-const Card = ({ children, className = "" }) => (
-  <div className={`bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden ${className}`}>
-    {children}
-  </div>
-);
-
-// --- Main App Component ---
-
-export default function App() {
-  const [activeTab, setActiveTab] = useState('notes');
-  const [notes, setNotes] = useState(() => {
-    const saved = localStorage.getItem('gem_notes');
-    return saved ? JSON.parse(saved) : [
-      { id: 1, title: 'Quantum Mechanics L1', content: 'Discussion on wave-particle duality and the Schrodinger equation...', date: new Date().toISOString(), category: 'Physics' },
-      { id: 2, title: 'Ethics in AI', content: 'Today we discussed the alignment problem and bias in datasets.', date: new Date().toISOString(), category: 'Philosophy' }
-    ];
-  });
-  
-  const [reminders, setReminders] = useState(() => {
-    const saved = localStorage.getItem('gem_reminders');
-    return saved ? JSON.parse(saved) : [
-      { id: 1, text: 'Submit Calculus Assignment', time: '2023-12-31T23:59', completed: false },
-      { id: 2, text: 'Final Project Presentation', time: '2024-01-15T10:00', completed: false }
-    ];
-  });
-
-  const [isDarkMode, setIsDarkMode] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
-  const [currentNote, setCurrentNote] = useState({ title: '', content: '', category: 'General' });
-
-  // Persistence
-  useEffect(() => {
-    localStorage.setItem('gem_notes', JSON.stringify(notes));
-  }, [notes]);
-
-  useEffect(() => {
-    localStorage.setItem('gem_reminders', JSON.stringify(reminders));
-  }, [reminders]);
-
-  // Notifications Logic
-  const requestNotificationPermission = async () => {
-    if (!("Notification" in window)) return;
-    const permission = await Notification.requestPermission();
-    if (permission === "granted") {
-      new Notification("Gem Diary Ready!", { body: "You will now receive academic reminders." });
-    }
-  };
-
-  const scheduleNotification = (reminder) => {
-    if (Notification.permission !== "granted") return;
-    
-    const timeToRemind = new Date(reminder.time).getTime() - new Date().getTime();
-    if (timeToRemind > 0) {
-      setTimeout(() => {
-        new Notification("Gem Reminder!", {
-          body: reminder.text,
-          icon: "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f48e.png"
-        });
-      }, timeToRemind);
-    }
-  };
-
-  // Handlers
-  const handleAddNote = () => {
-    if (!currentNote.title || !currentNote.content) return;
-    const newNote = {
-      ...currentNote,
-      id: Date.now(),
-      date: new Date().toISOString()
-    };
-    setNotes([newNote, ...notes]);
-    setCurrentNote({ title: '', content: '', category: 'General' });
-    setIsNoteModalOpen(false);
-  };
-
-  const handleDeleteNote = (id) => {
-    setNotes(notes.filter(n => n.id !== id));
-  };
-
-  const handleAddReminder = (e) => {
-    e.preventDefault();
-    const text = e.target.reminderText.value;
-    const time = e.target.reminderTime.value;
-    if (!text || !time) return;
-
-    const newReminder = { id: Date.now(), text, time, completed: false };
-    setReminders([newReminder, ...reminders]);
-    scheduleNotification(newReminder);
-    e.target.reset();
-  };
-
-  const toggleReminder = (id) => {
-    setReminders(reminders.map(r => r.id === id ? { ...r, completed: !r.completed } : r));
-  };
-
-  // Filtered Content
-  const filteredNotes = notes.filter(n => 
-    n.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    n.content.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  return (
-    <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'dark bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
-      
-      {/* Mobile Top Bar */}
-      <header className="sticky top-0 z-20 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 py-3 flex justify-between items-center">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold shadow-lg shadow-indigo-500/20">
-            G
-          </div>
-          <h1 className="text-xl font-bold tracking-tight">Gem Diary</h1>
-        </div>
-        <div className="flex gap-2">
-          <button 
-            onClick={() => setIsDarkMode(!isDarkMode)}
-            className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors"
-          >
-            {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
-          </button>
-          <button className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full">
-            <User size={20} />
-          </button>
-        </div>
-      </header>
-
-      {/* Main Content Area */}
-      <main className="max-w-4xl mx-auto px-4 pt-6 pb-24">
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#6366f1">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f48e.png">
+    <title>Gem Diary | Academic Mind</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
         
-        {/* Search Bar */}
-        <div className="relative mb-6">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-          <input 
-            type="text" 
-            placeholder="Search notes and journals..."
-            className="w-full pl-10 pr-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none shadow-sm"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
-
-        {activeTab === 'notes' && (
-          <section className="space-y-6">
-            <div className="flex justify-between items-center">
-              <div>
-                <h2 className="text-2xl font-bold">Academic Notes</h2>
-                <p className="text-sm text-slate-500">Capture lectures and research</p>
-              </div>
-              <Button onClick={() => setIsNoteModalOpen(true)} icon={Plus}>New Note</Button>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {filteredNotes.map(note => (
-                <Card key={note.id} className="group hover:border-indigo-400 transition-all cursor-pointer">
-                  <div className="p-5">
-                    <div className="flex justify-between items-start mb-2">
-                      <span className="px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-xs font-bold uppercase tracking-wider">
-                        {note.category}
-                      </span>
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); handleDeleteNote(note.id); }}
-                        className="text-slate-400 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                    <h3 className="font-bold text-lg mb-2 leading-tight">{note.title}</h3>
-                    <p className="text-slate-600 dark:text-slate-400 text-sm line-clamp-3 mb-4">
-                      {note.content}
-                    </p>
-                    <div className="flex items-center text-xs text-slate-400 gap-2">
-                      <Clock size={12} />
-                      {new Date(note.date).toLocaleDateString()}
-                    </div>
-                  </div>
-                </Card>
-              ))}
-            </div>
-            {filteredNotes.length === 0 && (
-              <div className="text-center py-20 bg-white dark:bg-slate-900 rounded-3xl border-2 border-dashed border-slate-200 dark:border-slate-800">
-                <BookOpen size={48} className="mx-auto text-slate-300 mb-4" />
-                <p className="text-slate-500">No notes found. Start writing your masterpiece!</p>
-              </div>
-            )}
-          </section>
-        )}
-
-        {activeTab === 'reminders' && (
-          <section className="space-y-6">
-            <div className="flex justify-between items-center">
-              <div>
-                <h2 className="text-2xl font-bold">Study Planner</h2>
-                <p className="text-sm text-slate-500">Deadlines and Exam schedule</p>
-              </div>
-              <Button variant="secondary" onClick={requestNotificationPermission} icon={Bell}>Enable Alerts</Button>
-            </div>
-
-            <Card className="p-6">
-              <form onSubmit={handleAddReminder} className="flex flex-col md:flex-row gap-3 mb-8">
-                <input 
-                  name="reminderText"
-                  placeholder="What's the goal?"
-                  className="flex-grow p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-                <input 
-                  name="reminderTime"
-                  type="datetime-local"
-                  className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 outline-none"
-                />
-                <Button icon={Plus}>Add Task</Button>
-              </form>
-
-              <div className="space-y-3">
-                {reminders.sort((a,b) => new Date(a.time) - new Date(b.time)).map(r => (
-                  <div 
-                    key={r.id}
-                    className={`flex items-center gap-4 p-4 rounded-xl border transition-all ${r.completed ? 'bg-slate-50 dark:bg-slate-800/50 border-transparent opacity-60' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm'}`}
-                  >
-                    <button 
-                      onClick={() => toggleReminder(r.id)}
-                      className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${r.completed ? 'bg-green-500 border-green-500 text-white' : 'border-slate-300 dark:border-slate-600'}`}
-                    >
-                      {r.completed && <CheckCircle size={14} />}
-                    </button>
-                    <div className="flex-grow">
-                      <h4 className={`font-semibold ${r.completed ? 'line-through' : ''}`}>{r.text}</h4>
-                      <p className="text-xs text-slate-500 flex items-center gap-1 mt-1">
-                        <Calendar size={12} />
-                        {new Date(r.time).toLocaleString()}
-                      </p>
-                    </div>
-                    <button 
-                      onClick={() => setReminders(reminders.filter(rem => rem.id !== r.id))}
-                      className="text-slate-400 hover:text-rose-500"
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          </section>
-        )}
-      </main>
-
-      {/* Note Creation Modal */}
-      {isNoteModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm">
-          <Card className="w-full max-w-lg animate-in fade-in zoom-in duration-200">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-bold">Create New Note</h3>
-                <button onClick={() => setIsNoteModalOpen(false)} className="text-slate-400 hover:text-slate-600">
-                  <Plus size={24} className="rotate-45" />
-                </button>
-              </div>
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium mb-1 block">Title</label>
-                  <input 
-                    className="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 outline-none focus:ring-2 focus:ring-indigo-500"
-                    placeholder="Enter title..."
-                    value={currentNote.title}
-                    onChange={e => setCurrentNote({...currentNote, title: e.target.value})}
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium mb-1 block">Course/Category</label>
-                    <select 
-                      className="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 outline-none"
-                      value={currentNote.category}
-                      onChange={e => setCurrentNote({...currentNote, category: e.target.value})}
-                    >
-                      <option>General</option>
-                      <option>Mathematics</option>
-                      <option>Physics</option>
-                      <option>Computer Science</option>
-                      <option>Philosophy</option>
-                      <option>Biology</option>
-                    </select>
-                  </div>
-                </div>
-                <div>
-                  <label className="text-sm font-medium mb-1 block">Content</label>
-                  <textarea 
-                    className="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 outline-none focus:ring-2 focus:ring-indigo-500 h-40 resize-none"
-                    placeholder="Start writing..."
-                    value={currentNote.content}
-                    onChange={e => setCurrentNote({...currentNote, content: e.target.value})}
-                  />
-                </div>
-                <Button className="w-full" onClick={handleAddNote} icon={Save}>Save Note</Button>
-              </div>
-            </div>
-          </Card>
-        </div>
-      )}
-
-      {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border-t border-slate-200 dark:border-slate-800 px-6 py-3 pb-8 md:pb-3 flex justify-around items-center z-40">
-        <button 
-          onClick={() => setActiveTab('notes')}
-          className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'notes' ? 'text-indigo-600' : 'text-slate-400'}`}
-        >
-          <Book size={24} />
-          <span className="text-[10px] font-bold uppercase tracking-wider">Notes</span>
-        </button>
-        <button 
-          className="w-14 h-14 bg-indigo-600 text-white rounded-full flex items-center justify-center -translate-y-6 shadow-xl shadow-indigo-500/40 border-4 border-slate-50 dark:border-slate-950 active:scale-90 transition-transform"
-          onClick={() => setIsNoteModalOpen(true)}
-        >
-          <Plus size={28} />
-        </button>
-        <button 
-          onClick={() => setActiveTab('reminders')}
-          className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'reminders' ? 'text-indigo-600' : 'text-slate-400'}`}
-        >
-          <Bell size={24} />
-          <span className="text-[10px] font-bold uppercase tracking-wider">Alerts</span>
-        </button>
-      </nav>
-
-      {/* PWA/Install Style Injection */}
-      <style>{`
-        @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes zoom-in { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-        .animate-in { animation-duration: 0.2s; animation-fill-mode: both; }
-        .fade-in { animation-name: fade-in; }
-        .zoom-in { animation-name: zoom-in; }
-        
-        /* Mobile Safe Areas */
-        @supports (padding-bottom: env(safe-area-inset-bottom)) {
-          nav {
-            padding-bottom: calc(env(safe-area-inset-bottom) + 12px);
-          }
+        :root {
+            --gem-primary: #6366f1;
+            --gem-secondary: #a855f7;
+            --gem-accent: #2dd4bf;
         }
-      `}</style>
-    </div>
-  );
-}
 
-                        
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: #f8fafc;
+            overflow-x: hidden;
+        }
+
+        .dark body { background: #020617; }
+
+        .gem-mesh {
+            background: radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
+                        radial-gradient(at 100% 0%, rgba(168, 85, 247, 0.15) 0px, transparent 50%),
+                        radial-gradient(at 100% 100%, rgba(45, 212, 191, 0.1) 0px, transparent 50%);
+        }
+
+        .gem-card {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            box-shadow: 0 8px 32px -4px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .dark .gem-card {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 8px 32px -4px rgba(0, 0, 0, 0.3);
+        }
+
+        .gem-btn-primary {
+            background: linear-gradient(135deg, var(--gem-primary), var(--gem-secondary));
+            box-shadow: 0 10px 20px -10px var(--gem-primary);
+        }
+
+        .nav-blur {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: saturate(180%) blur(20px);
+        }
+
+        .dark .nav-blur { background: rgba(2, 6, 23, 0.8); }
+
+        .facet-border {
+            clip-path: polygon(5% 0, 100% 0, 100% 90%, 95% 100%, 0 100%, 0 10%);
+        }
+
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0px); }
+        }
+        .float-anim { animation: float 4s ease-in-out infinite; }
+
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body class="dark:text-white transition-colors duration-500">
+
+    <div class="gem-mesh min-h-screen">
+        <!-- Top Bar -->
+        <header class="sticky top-0 z-50 px-6 py-5 flex justify-between items-center transition-all" id="header">
+            <div class="flex items-center gap-3">
+                <div class="w-11 h-11 gem-btn-primary rounded-2xl flex items-center justify-center text-white shadow-xl facet-border">
+                    <i data-lucide="gem" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-extrabold tracking-tight">Gem Diary</h1>
+                    <span class="text-[10px] font-bold text-indigo-500 uppercase tracking-widest">University Edition</span>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button onclick="toggleTheme()" class="p-3 rounded-2xl hover:bg-white/50 dark:hover:bg-white/10 transition-all">
+                    <i data-lucide="moon" id="themeIcon" class="w-5 h-5 text-slate-500 dark:text-slate-400"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Dynamic Main View -->
+        <main id="view-container" class="px-6 pb-32 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <!-- Content will be injected by JavaScript -->
+        </main>
+
+        <!-- Floating Action Button -->
+        <button onclick="ui.showModal()" class="fixed bottom-28 right-6 w-16 h-16 gem-btn-primary text-white rounded-[2rem] shadow-2xl flex items-center justify-center active:scale-90 transition-transform z-50">
+            <i data-lucide="plus" class="w-8 h-8"></i>
+        </button>
+
+        <!-- Tab Bar -->
+        <nav class="fixed bottom-0 left-0 right-0 z-50 px-6 py-4 pb-8 md:pb-4">
+            <div class="max-w-md mx-auto nav-blur rounded-[2.5rem] border border-white/20 dark:border-white/5 flex justify-between items-center px-4 py-2 shadow-2xl">
+                <button onclick="ui.switchTab('notes')" id="nav-notes" class="flex flex-col items-center gap-1 p-3 rounded-2xl transition-all text-indigo-500">
+                    <i data-lucide="book-open" class="w-6 h-6"></i>
+                    <span class="text-[10px] font-bold uppercase tracking-tighter">Notes</span>
+                </button>
+                <button onclick="ui.switchTab('tasks')" id="nav-tasks" class="flex flex-col items-center gap-1 p-3 rounded-2xl transition-all text-slate-400">
+                    <i data-lucide="list-todo" class="w-6 h-6"></i>
+                    <span class="text-[10px] font-bold uppercase tracking-tighter">Tasks</span>
+                </button>
+                <button onclick="ui.switchTab('campus')" id="nav-campus" class="flex flex-col items-center gap-1 p-3 rounded-2xl transition-all text-slate-400">
+                    <i data-lucide="map-pin" class="w-6 h-6"></i>
+                    <span class="text-[10px] font-bold uppercase tracking-tighter">Campus</span>
+                </button>
+                <button onclick="ui.switchTab('settings')" id="nav-settings" class="flex flex-col items-center gap-1 p-3 rounded-2xl transition-all text-slate-400">
+                    <i data-lucide="settings" class="w-6 h-6"></i>
+                    <span class="text-[10px] font-bold uppercase tracking-tighter">Tools</span>
+                </button>
+            </div>
+        </nav>
+    </div>
+
+    <!-- Universal Modal -->
+    <div id="modalOverlay" class="fixed inset-0 bg-slate-950/40 backdrop-blur-md z-[60] hidden flex items-end sm:items-center justify-center p-4">
+        <div class="w-full max-w-lg gem-card rounded-[2.5rem] p-8 transform transition-all translate-y-20 opacity-0" id="modalBox">
+            <div class="flex justify-between items-center mb-8">
+                <h2 id="modalTitle" class="text-2xl font-extrabold">New Gem Note</h2>
+                <button onclick="ui.hideModal()" class="p-2 bg-slate-100 dark:bg-slate-800 rounded-full">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            
+            <div id="noteForm" class="space-y-4">
+                <input id="noteTitle" type="text" placeholder="Title of your lecture..." class="w-full bg-slate-100/50 dark:bg-slate-800/50 p-4 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 font-bold">
+                <div class="grid grid-cols-2 gap-3">
+                    <select id="noteCategory" class="bg-slate-100/50 dark:bg-slate-800/50 p-4 rounded-2xl outline-none text-sm font-semibold">
+                        <option>General</option>
+                        <option>Engineering</option>
+                        <option>Medical</option>
+                        <option>Business</option>
+                        <option>Arts</option>
+                    </select>
+                    <div class="flex items-center gap-2 bg-slate-100/50 dark:bg-slate-800/50 p-4 rounded-2xl">
+                        <i data-lucide="star" class="w-4 h-4 text-amber-400"></i>
+                        <span class="text-xs font-bold">High Priority</span>
+                    </div>
+                </div>
+                <textarea id="noteBody" placeholder="Start typing your thoughts..." class="w-full bg-slate-100/50 dark:bg-slate-800/50 p-4 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 h-48 resize-none"></textarea>
+                <button onclick="logic.saveNote()" class="w-full py-5 gem-btn-primary text-white rounded-3xl font-bold shadow-lg">Store in Vault</button>
+            </div>
+
+            <div id="taskForm" class="space-y-4 hidden">
+                <input id="taskText" type="text" placeholder="What is the deadline?" class="w-full bg-slate-100/50 dark:bg-slate-800/50 p-4 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 font-bold">
+                <input id="taskTime" type="datetime-local" class="w-full bg-slate-100/50 dark:bg-slate-800/50 p-4 rounded-2xl outline-none">
+                <button onclick="logic.saveTask()" class="w-full py-5 gem-btn-primary text-white rounded-3xl font-bold shadow-lg">Schedule Alert</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Core State ---
+        let state = {
+            currentTab: 'notes',
+            isDark: false,
+            notes: JSON.parse(localStorage.getItem('gem_notes')) || [],
+            tasks: JSON.parse(localStorage.getItem('gem_tasks')) || []
+        };
+
+        // --- Logic & Actions ---
+        const logic = {
+            saveNote: () => {
+                const title = document.getElementById('noteTitle').value;
+                const body = document.getElementById('noteBody').value;
+                const category = document.getElementById('noteCategory').value;
+                if(!title || !body) return;
+
+                state.notes.unshift({ id: Date.now(), title, body, category, date: new Date().toISOString() });
+                localStorage.setItem('gem_notes', JSON.stringify(state.notes));
+                ui.hideModal();
+                ui.render();
+            },
+            saveTask: () => {
+                const text = document.getElementById('taskText').value;
+                const time = document.getElementById('taskTime').value;
+                if(!text || !time) return;
+
+                const newTask = { id: Date.now(), text, time, done: false };
+                state.tasks.unshift(newTask);
+                localStorage.setItem('gem_tasks', JSON.stringify(state.tasks));
+                
+                // PWA Notification logic
+                logic.scheduleReminder(newTask);
+                
+                ui.hideModal();
+                ui.render();
+            },
+            scheduleReminder: (task) => {
+                const delay = new Date(task.time).getTime() - Date.now();
+                if(delay > 0 && "Notification" in window) {
+                    setTimeout(() => {
+                        new Notification("Gem Reminder!", {
+                            body: task.text,
+                            icon: "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f48e.png"
+                        });
+                    }, delay);
+                }
+            }
+        };
+
+        // --- UI Interactions ---
+        const ui = {
+            render: () => {
+                const container = document.getElementById('view-container');
+                container.innerHTML = '';
+                
+                if(state.currentTab === 'notes') {
+                    if(state.notes.length === 0) {
+                        container.innerHTML = `<div class="text-center py-20 opacity-30 float-anim"><i data-lucide="layers" class="w-20 h-20 mx-auto mb-4"></i><p class="font-bold">Your academic vault is empty.</p></div>`;
+                    } else {
+                        state.notes.forEach(note => {
+                            container.innerHTML += `
+                                <div class="gem-card p-6 rounded-[2rem] mb-4 group active:scale-95 transition-all">
+                                    <div class="flex justify-between mb-4">
+                                        <span class="text-[10px] font-extrabold px-3 py-1 bg-indigo-500/10 text-indigo-500 rounded-full border border-indigo-500/20">${note.category}</span>
+                                        <span class="text-[10px] font-medium text-slate-400">${new Date(note.date).toLocaleDateString()}</span>
+                                    </div>
+                                    <h3 class="text-lg font-extrabold mb-2 leading-tight">${note.title}</h3>
+                                    <p class="text-sm text-slate-500 dark:text-slate-400 line-clamp-3">${note.body}</p>
+                                </div>
+                            `;
+                        });
+                    }
+                } else if(state.currentTab === 'tasks') {
+                    container.innerHTML = `<h2 class="text-2xl font-extrabold mb-6">Upcoming Alerts</h2>`;
+                    state.tasks.forEach(task => {
+                        container.innerHTML += `
+                            <div class="gem-card p-5 rounded-[2rem] flex items-center gap-4 mb-3 border-l-4 border-l-indigo-500">
+                                <div class="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-500">
+                                    <i data-lucide="clock" class="w-5 h-5"></i>
+                                </div>
+                                <div class="flex-grow">
+                                    <h4 class="font-bold text-sm">${task.text}</h4>
+                                    <p class="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-wider">${new Date(task.time).toLocaleString()}</p>
+                                </div>
+                            </div>
+                        `;
+                    });
+                } else {
+                    container.innerHTML = `<div class="text-center py-20 opacity-50"><p>Coming soon to your Campus.</p></div>`;
+                }
+                lucide.createIcons();
+            },
+            switchTab: (tab) => {
+                state.currentTab = tab;
+                document.querySelectorAll('nav button').forEach(btn => {
+                    btn.classList.remove('text-indigo-500');
+                    btn.classList.add('text-slate-400');
+                });
+                document.getElementById(`nav-${tab}`).classList.remove('text-slate-400');
+                document.getElementById(`nav-${tab}`).classList.add('text-indigo-500');
+                ui.render();
+            },
+            showModal: () => {
+                const overlay = document.getElementById('modalOverlay');
+                const box = document.getElementById('modalBox');
+                overlay.classList.remove('hidden');
+                
+                if(state.currentTab === 'tasks') {
+                    document.getElementById('noteForm').classList.add('hidden');
+                    document.getElementById('taskForm').classList.remove('hidden');
+                    document.getElementById('modalTitle').innerText = 'New Task Alert';
+                } else {
+                    document.getElementById('noteForm').classList.remove('hidden');
+                    document.getElementById('taskForm').classList.add('hidden');
+                    document.getElementById('modalTitle').innerText = 'New Gem Note';
+                }
+
+                setTimeout(() => {
+                    box.classList.remove('translate-y-20', 'opacity-0');
+                }, 10);
+            },
+            hideModal: () => {
+                const overlay = document.getElementById('modalOverlay');
+                const box = document.getElementById('modalBox');
+                box.classList.add('translate-y-20', 'opacity-0');
+                setTimeout(() => overlay.classList.add('hidden'), 300);
+            }
+        };
+
+        function toggleTheme() {
+            state.isDark = !state.isDark;
+            document.documentElement.classList.toggle('dark');
+            document.getElementById('themeIcon').setAttribute('data-lucide', state.isDark ? 'sun' : 'moon');
+            lucide.createIcons();
+        }
+
+        // --- PWA Registration ---
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js')
+                .then(reg => console.log('Service Worker registered'))
+                .catch(err => console.log('Service Worker failed', err));
+            });
+        }
+
+        // Notification Permission
+        if("Notification" in window) {
+            Notification.requestPermission();
+        }
+
+        // Boot
+        lucide.createIcons();
+        ui.render();
+    </script>
+</body>
+</html>
